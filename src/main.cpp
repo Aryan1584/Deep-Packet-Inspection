@@ -11,7 +11,7 @@ void printPacketSummary(const ParsedPacket& pkt, int packet_num) {
     std::time_t time = pkt.timestamp_sec;
     std::tm* tm = std::localtime(&time);
     
-    std::cout << "\n========== Packet #" << packet_num << " ==========\n";
+    std::cout << "\n+---------- Packet #" << packet_num << " ----------+\n";
     std::cout << "Time: " << std::put_time(tm, "%Y-%m-%d %H:%M:%S") 
               << "." << std::setfill('0') << std::setw(6) << pkt.timestamp_usec << "\n";
     
@@ -87,9 +87,9 @@ void printUsage(const char* program_name) {
 }
 
 int main(int argc, char* argv[]) {
-    std::cout << "====================================\n";
-    std::cout << "     Packet Analyzer v1.0\n";
-    std::cout << "====================================\n\n";
+    std::cout << "+----------------------------------+\n";
+    std::cout << "|        Packet Analyzer v1.0      |\n";
+    std::cout << "+----------------------------------+\n\n";
     
     // Check command line arguments
     if (argc < 2) {
@@ -136,11 +136,11 @@ int main(int argc, char* argv[]) {
     }
     
     // Summary
-    std::cout << "\n====================================\n";
-    std::cout << "Summary:\n";
-    std::cout << "  Total packets read:  " << packet_count << "\n";
-    std::cout << "  Parse errors:        " << parse_errors << "\n";
-    std::cout << "====================================\n";
+    std::cout << "\n+----------------------------------+\n";
+    std::cout << "| Summary                          |\n";
+    std::cout << "|   Total packets read:  " << std::setw(8) << packet_count << " |\n";
+    std::cout << "|   Parse errors:        " << std::setw(8) << parse_errors << " |\n";
+    std::cout << "+----------------------------------+\n";
     
     reader.close();
     return 0;

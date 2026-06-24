@@ -33,8 +33,9 @@ This document explains **everything** about this project - from basic networking
 
 ### What Our DPI Engine Does:
 ```
-User Traffic (PCAP) → [DPI Engine] → Filtered Traffic (PCAP)
-                           ↓
+User Traffic (PCAP) -> [DPI Engine] -> Filtered Traffic (PCAP)
+                           |
+                           v
                     - Identifies apps (YouTube, Facebook, etc.)
                     - Blocks based on rules
                     - Generates reports
@@ -49,15 +50,15 @@ User Traffic (PCAP) → [DPI Engine] → Filtered Traffic (PCAP)
 When you visit a website, data travels through multiple "layers":
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│ Layer 7: Application    │ HTTP, TLS, DNS               │
-├─────────────────────────────────────────────────────────┤
-│ Layer 4: Transport      │ TCP (reliable), UDP (fast)   │
-├─────────────────────────────────────────────────────────┤
-│ Layer 3: Network        │ IP addresses (routing)       │
-├─────────────────────────────────────────────────────────┤
-│ Layer 2: Data Link      │ MAC addresses (local network)│
-└─────────────────────────────────────────────────────────┘
++---------------------------------------------------------+
+| Layer 7: Application    | HTTP, TLS, DNS                |
++---------------------------------------------------------+
+| Layer 4: Transport      | TCP (reliable), UDP (fast)    |
++---------------------------------------------------------+
+| Layer 3: Network        | IP addresses (routing)        |
++---------------------------------------------------------+
+| Layer 2: Data Link      | MAC addresses (local network) |
++---------------------------------------------------------+
 ```
 
 ### A Packet's Structure
@@ -65,19 +66,19 @@ When you visit a website, data travels through multiple "layers":
 Every network packet is like a **Russian nesting doll** - headers wrapped inside headers:
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│ Ethernet Header (14 bytes)                                       │
-│ ┌──────────────────────────────────────────────────────────────┐ │
-│ │ IP Header (20 bytes)                                         │ │
-│ │ ┌──────────────────────────────────────────────────────────┐ │ │
-│ │ │ TCP Header (20 bytes)                                    │ │ │
-│ │ │ ┌──────────────────────────────────────────────────────┐ │ │ │
-│ │ │ │ Payload (Application Data)                           │ │ │ │
-│ │ │ │ e.g., TLS Client Hello with SNI                      │ │ │ │
-│ │ │ └──────────────────────────────────────────────────────┘ │ │ │
-│ │ └──────────────────────────────────────────────────────────┘ │ │
-│ └──────────────────────────────────────────────────────────────┘ │
-└──────────────────────────────────────────────────────────────────┘
++------------------------------------------------------------------+
+| Ethernet Header (14 bytes)                                       |
+| +--------------------------------------------------------------+ |
+| | IP Header (20 bytes)                                         | |
+| | +----------------------------------------------------------+ | |
+| | | TCP Header (20 bytes)                                    | | |
+| | | +------------------------------------------------------+ | | |
+| | | | Payload (Application Data)                           | | | |
+| | | | e.g., TLS Client Hello with SNI                      | | | |
+| | | +------------------------------------------------------+ | | |
+| | +----------------------------------------------------------+ | |
+| +--------------------------------------------------------------+ |
++------------------------------------------------------------------+
 ```
 
 ### The Five-Tuple
@@ -107,12 +108,12 @@ A **connection** (or "flow") is uniquely identified by 5 values:
 
 ```
 TLS Client Hello:
-├── Version: TLS 1.2
-├── Random: [32 bytes]
-├── Cipher Suites: [list]
-└── Extensions:
-    └── SNI Extension:
-        └── Server Name: "www.youtube.com"  ← We extract THIS!
++-- Version: TLS 1.2
++-- Random: [32 bytes]
++-- Cipher Suites: [list]
++-- Extensions:
+    +-- SNI Extension:
+        +-- Server Name: "www.youtube.com"  <- We extract THIS!
 ```
 
 **This is the key to DPI**: Even though HTTPS is encrypted, the domain name is visible in the first packet!
@@ -124,14 +125,14 @@ TLS Client Hello:
 ### What This Project Does
 
 ```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│ Wireshark   │     │ DPI Engine  │     │ Output      │
-│ Capture     │ ──► │             │ ──► │ PCAP        │
-│ (input.pcap)│     │ - Parse     │     │ (filtered)  │
-└─────────────┘     │ - Classify  │     └─────────────┘
-                    │ - Block     │
-                    │ - Report    │
-                    └─────────────┘
++-------------+     +-------------+     +-------------+
+| Wireshark   |     | DPI Engine  |     | Output      |
+| Capture     | --> |             | --> | PCAP        |
+| (input.pcap)|     | - Parse     |     | (filtered)  |
++-------------+     | - Classify  |     +-------------+
+                    | - Block     |
+                    | - Report    |
+                    +-------------+
 ```
 
 ### Two Versions
@@ -147,30 +148,30 @@ TLS Client Hello:
 
 ```
 packet_analyzer/
-├── include/                    # Header files (declarations)
-│   ├── pcap_reader.h          # PCAP file reading
-│   ├── packet_parser.h        # Network protocol parsing
-│   ├── sni_extractor.h        # TLS/HTTP inspection
-│   ├── types.h                # Data structures (FiveTuple, AppType, etc.)
-│   ├── rule_manager.h         # Blocking rules (multi-threaded version)
-│   ├── connection_tracker.h   # Flow tracking (multi-threaded version)
-│   ├── load_balancer.h        # LB thread (multi-threaded version)
-│   ├── fast_path.h            # FP thread (multi-threaded version)
-│   ├── thread_safe_queue.h    # Thread-safe queue
-│   └── dpi_engine.h           # Main orchestrator
-│
-├── src/                        # Implementation files
-│   ├── pcap_reader.cpp        # PCAP file handling
-│   ├── packet_parser.cpp      # Protocol parsing
-│   ├── sni_extractor.cpp      # SNI/Host extraction
-│   ├── types.cpp              # Helper functions
-│   ├── main_working.cpp       # ★ SIMPLE VERSION ★
-│   ├── dpi_mt.cpp             # ★ MULTI-THREADED VERSION ★
-│   └── [other files]          # Supporting code
-│
-├── generate_test_pcap.py      # Creates test data
-├── test_dpi.pcap              # Sample capture with various traffic
-└── README.md                  # This file!
++-- include/                    # Header files (declarations)
+|   +-- pcap_reader.h          # PCAP file reading
+|   +-- packet_parser.h        # Network protocol parsing
+|   +-- sni_extractor.h        # TLS/HTTP inspection
+|   +-- types.h                # Data structures (FiveTuple, AppType, etc.)
+|   +-- rule_manager.h         # Blocking rules (multi-threaded version)
+|   +-- connection_tracker.h   # Flow tracking (multi-threaded version)
+|   +-- load_balancer.h        # LB thread (multi-threaded version)
+|   +-- fast_path.h            # FP thread (multi-threaded version)
+|   +-- thread_safe_queue.h    # Thread-safe queue
+|   +-- dpi_engine.h           # Main orchestrator
+|
++-- src/                        # Implementation files
+|   +-- pcap_reader.cpp        # PCAP file handling
+|   +-- packet_parser.cpp      # Protocol parsing
+|   +-- sni_extractor.cpp      # SNI/Host extraction
+|   +-- types.cpp              # Helper functions
+|   +-- main_working.cpp       # SIMPLE VERSION
+|   +-- dpi_mt.cpp             # MULTI-THREADED VERSION
+|   +-- [other files]          # Supporting code
+|
++-- generate_test_pcap.py      # Creates test data
++-- test_dpi.pcap              # Sample capture with various traffic
++-- README.md                  # This file!
 ```
 
 ---
@@ -193,17 +194,17 @@ reader.open("capture.pcap");
 
 **PCAP File Format:**
 ```
-┌────────────────────────────┐
-│ Global Header (24 bytes)   │  ← Read once at start
-├────────────────────────────┤
-│ Packet Header (16 bytes)   │  ← Timestamp, length
-│ Packet Data (variable)     │  ← Actual network bytes
-├────────────────────────────┤
-│ Packet Header (16 bytes)   │
-│ Packet Data (variable)     │
-├────────────────────────────┤
-│ ... more packets ...       │
-└────────────────────────────┘
++----------------------------+
+| Global Header (24 bytes)   |  <- Read once at start
++----------------------------+
+| Packet Header (16 bytes)   |  <- Timestamp, length
+| Packet Data (variable)     |  <- Actual network bytes
++----------------------------+
+| Packet Header (16 bytes)   |
+| Packet Data (variable)     |
++----------------------------+
+| ... more packets ...       |
++----------------------------+
 ```
 
 ### Step 2: Read Each Packet
@@ -286,7 +287,7 @@ Flow& flow = flows[tuple];  // Get or create
 ```
 
 **What happens:**
-- The flow table is a hash map: `FiveTuple → Flow`
+- The flow table is a hash map: `FiveTuple -> Flow`
 - If this 5-tuple exists, we get the existing flow
 - If not, a new flow is created
 - All packets with the same 5-tuple share the same flow
@@ -308,8 +309,8 @@ if (pkt.tuple.dst_port == 443 && pkt.payload_length > 5) {
 
 1. **Check if it's a TLS Client Hello:**
    ```
-   Byte 0: Content Type = 0x16 (Handshake) ✓
-   Byte 5: Handshake Type = 0x01 (Client Hello) ✓
+   Byte 0: Content Type = 0x16 (Handshake) OK
+   Byte 5: Handshake Type = 0x01 (Client Hello) OK
    ```
 
 2. **Navigate to Extensions:**
@@ -324,7 +325,7 @@ if (pkt.tuple.dst_port == 443 && pkt.payload_length > 5) {
    SNI List Length: M
    SNI Type: 0x00 (hostname)
    SNI Length: L
-   SNI Value: "www.youtube.com"  ← FOUND!
+   SNI Value: "www.youtube.com"  <- FOUND!
    ```
 
 4. **Map SNI to App Type:**
@@ -397,39 +398,39 @@ The multi-threaded version (`dpi_mt.cpp`) adds **parallelism** for high performa
 ### Architecture Overview
 
 ```
-                    ┌─────────────────┐
-                    │  Reader Thread  │
-                    │  (reads PCAP)   │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              │      hash(5-tuple) % 2      │
-              ▼                             ▼
-    ┌─────────────────┐           ┌─────────────────┐
-    │  LB0 Thread     │           │  LB1 Thread     │
-    │  (Load Balancer)│           │  (Load Balancer)│
-    └────────┬────────┘           └────────┬────────┘
-             │                             │
-      ┌──────┴──────┐               ┌──────┴──────┐
-      │hash % 2     │               │hash % 2     │
-      ▼             ▼               ▼             ▼
-┌──────────┐ ┌──────────┐   ┌──────────┐ ┌──────────┐
-│FP0 Thread│ │FP1 Thread│   │FP2 Thread│ │FP3 Thread│
-│(Fast Path)│ │(Fast Path)│   │(Fast Path)│ │(Fast Path)│
-└─────┬────┘ └─────┬────┘   └─────┬────┘ └─────┬────┘
-      │            │              │            │
-      └────────────┴──────────────┴────────────┘
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │   Output Queue        │
-              └───────────┬───────────┘
-                          │
-                          ▼
-              ┌───────────────────────┐
-              │  Output Writer Thread │
-              │  (writes to PCAP)     │
-              └───────────────────────┘
+                    +-----------------+
+                    |  Reader Thread  |
+                    |  (reads PCAP)   |
+                    +--------+--------+
+                             |
+              +--------------+--------------+
+              |      hash(5-tuple) % 2      |
+              v                             v
+    +-----------------+           +-----------------+
+    |  LB0 Thread     |           |  LB1 Thread     |
+    |  (Load Balancer)|           |  (Load Balancer)|
+    +--------+--------+           +--------+--------+
+             |                             |
+      +------+------+               +------+------+
+      |hash % 2     |               |hash % 2     |
+      v             v               v             v
++----------+ +----------+   +----------+ +----------+
+|FP0 Thread| |FP1 Thread|   |FP2 Thread| |FP3 Thread|
+|(Fast Path)| |(Fast Path)|   |(Fast Path)| |(Fast Path)|
++-----+----+ +-----+----+   +-----+----+ +-----+----+
+      |            |              |            |
+      +------------+--------------+------------+
+                          |
+                          v
+              +-----------------------+
+              |   Output Queue        |
+              +-----------+-----------+
+                          |
+                          v
+              +-----------------------+
+              |  Output Writer Thread |
+              |  (writes to PCAP)     |
+              +-----------------------+
 ```
 
 ### Why This Design?
@@ -440,12 +441,12 @@ The multi-threaded version (`dpi_mt.cpp`) adds **parallelism** for high performa
 
 **Why consistent hashing matters:**
 ```
-Connection: 192.168.1.100:54321 → 142.250.185.206:443
+Connection: 192.168.1.100:54321 -> 142.250.185.206:443
 
-Packet 1 (SYN):         hash → FP2
-Packet 2 (SYN-ACK):     hash → FP2  (same FP!)
-Packet 3 (Client Hello): hash → FP2  (same FP!)
-Packet 4 (Data):        hash → FP2  (same FP!)
+Packet 1 (SYN):         hash -> FP2
+Packet 2 (SYN-ACK):     hash -> FP2  (same FP!)
+Packet 3 (Client Hello): hash -> FP2  (same FP!)
+Packet 4 (Data):        hash -> FP2  (same FP!)
 
 All packets of this connection go to FP2.
 FP2 can track the flow state correctly.
@@ -696,21 +697,21 @@ AppType sniToAppType(const std::string& sni) {
 When you visit `https://www.youtube.com`:
 
 ```
-┌──────────┐                              ┌──────────┐
-│  Browser │                              │  Server  │
-└────┬─────┘                              └────┬─────┘
-     │                                         │
-     │ ──── Client Hello ─────────────────────►│
-     │      (includes SNI: www.youtube.com)    │
-     │                                         │
-     │ ◄─── Server Hello ───────────────────── │
-     │      (includes certificate)             │
-     │                                         │
-     │ ──── Key Exchange ─────────────────────►│
-     │                                         │
-     │ ◄═══ Encrypted Data ══════════════════► │
-     │      (from here on, everything is       │
-     │       encrypted - we can't see it)      │
++----------+                              +----------+
+|  Browser |                              |  Server  |
++----+-----+                              +----+-----+
+     |                                         |
+     | ---- Client Hello --------------------> |
+     |      (includes SNI: www.youtube.com)    |
+     |                                         |
+     | <--- Server Hello --------------------- |
+     |      (includes certificate)             |
+     |                                         |
+     | ---- Key Exchange --------------------> |
+     |                                         |
+     | <--- Encrypted Data ------------------> |
+     |      (from here on, everything is       |
+     |       encrypted - we can't see it)      |
 ```
 
 **We can only extract SNI from the Client Hello!**
@@ -747,7 +748,7 @@ Extension Length: L
   SNI List Length: M
   SNI Type: 0x00 (hostname)
   SNI Length: K
-  SNI Value: "www.youtube.com" ← THE GOAL!
+  SNI Value: "www.youtube.com" <- THE GOAL!
 ```
 
 ### Our Extraction Code (Simplified)
@@ -817,23 +818,23 @@ std::optional<std::string> SNIExtractor::extract(
 
 ```
 Packet arrives
-      │
-      ▼
-┌─────────────────────────────────┐
-│ Is source IP in blocked list?  │──Yes──► DROP
-└───────────────┬─────────────────┘
-                │No
-                ▼
-┌─────────────────────────────────┐
-│ Is app type in blocked list?   │──Yes──► DROP
-└───────────────┬─────────────────┘
-                │No
-                ▼
-┌─────────────────────────────────┐
-│ Does SNI match blocked domain? │──Yes──► DROP
-└───────────────┬─────────────────┘
-                │No
-                ▼
+      |
+      v
++---------------------------------+
+| Is source IP in blocked list?   |--Yes--> DROP
++---------------+-----------------+
+                | No
+                v
++---------------------------------+
+| Is app type in blocked list?    |--Yes--> DROP
++---------------+-----------------+
+                | No
+                v
++---------------------------------+
+| Does SNI match blocked domain?  |--Yes--> DROP
++---------------+-----------------+
+                | No
+                v
             FORWARD
 ```
 
@@ -843,16 +844,16 @@ Packet arrives
 
 ```
 Connection to YouTube:
-  Packet 1 (SYN)           → No SNI yet, FORWARD
-  Packet 2 (SYN-ACK)       → No SNI yet, FORWARD  
-  Packet 3 (ACK)           → No SNI yet, FORWARD
-  Packet 4 (Client Hello)  → SNI: www.youtube.com
-                           → App: YOUTUBE (blocked!)
-                           → Mark flow as BLOCKED
-                           → DROP this packet
-  Packet 5 (Data)          → Flow is BLOCKED → DROP
-  Packet 6 (Data)          → Flow is BLOCKED → DROP
-  ...all subsequent packets → DROP
+  Packet 1 (SYN)           -> No SNI yet, FORWARD
+  Packet 2 (SYN-ACK)       -> No SNI yet, FORWARD
+  Packet 3 (ACK)           -> No SNI yet, FORWARD
+  Packet 4 (Client Hello)  -> SNI: www.youtube.com
+                           -> App: YOUTUBE (blocked!)
+                           -> Mark flow as BLOCKED
+                           -> DROP this packet
+  Packet 5 (Data)          -> Flow is BLOCKED -> DROP
+  Packet 6 (Data)          -> Flow is BLOCKED -> DROP
+  ...all subsequent packets -> DROP
 ```
 
 **Why this approach?**
@@ -866,58 +867,63 @@ Connection to YouTube:
 
 ### Prerequisites
 
-- **macOS/Linux** with C++17 compiler
+- **macOS/Linux/Windows** with C++17 compiler
 - **g++** or **clang++**
 - No external libraries needed!
 
 ### Build Commands
 
+```text
+PowerShell: use `
+Bash/Linux/macOS: use \
+```
+
 **Simple Version:**
-```bash
-g++ -std=c++17 -O2 -I include -o dpi_simple \
-    src/main_working.cpp \
-    src/pcap_reader.cpp \
-    src/packet_parser.cpp \
-    src/sni_extractor.cpp \
+```powershell
+g++ -std=c++17 -O2 -I include -o dpi_simple `
+    src/main_working.cpp `
+    src/pcap_reader.cpp `
+    src/packet_parser.cpp `
+    src/sni_extractor.cpp `
     src/types.cpp
 ```
 
 **Multi-threaded Version:**
-```bash
-g++ -std=c++17 -pthread -O2 -I include -o dpi_engine \
-    src/dpi_mt.cpp \
-    src/pcap_reader.cpp \
-    src/packet_parser.cpp \
-    src/sni_extractor.cpp \
+```powershell
+g++ -std=c++17 -pthread -O2 -I include -o dpi_engine `
+    src/dpi_mt.cpp `
+    src/pcap_reader.cpp `
+    src/packet_parser.cpp `
+    src/sni_extractor.cpp `
     src/types.cpp
 ```
 
 ### Running
 
 **Basic usage:**
-```bash
-./dpi_engine test_dpi.pcap output.pcap
+```powershell
+./dpi_engine.exe test_dpi.pcap output.pcap
 ```
 
 **With blocking:**
-```bash
-./dpi_engine test_dpi.pcap output.pcap \
-    --block-app YouTube \
-    --block-app TikTok \
-    --block-ip 192.168.1.50 \
+```powershell
+./dpi_engine test_dpi.pcap output.pcap `
+    --block-app YouTube `
+    --block-app TikTok `
+    --block-ip 192.168.1.50 `
     --block-domain facebook
 ```
 
 **Configure threads (multi-threaded only):**
-```bash
-./dpi_engine input.pcap output.pcap --lbs 4 --fps 4
-# Creates 4 LB threads × 4 FP threads = 16 processing threads
+```powershell
+./dpi_engine.exe input.pcap output.pcap --lbs 4 --fps 4
+# Creates 4 LB threads x 4 FP threads = 16 processing threads
 ```
 
 ### Creating Test Data
 
-```bash
-python3 generate_test_pcap.py
+```powershell
+python generate_test_pcap.py#Use python3 in command for macOS/Linux/Bash
 # Creates test_dpi.pcap with sample traffic
 ```
 
@@ -928,11 +934,11 @@ python3 generate_test_pcap.py
 ### Sample Output
 
 ```
-╔══════════════════════════════════════════════════════════════╗
-║              DPI ENGINE v2.0 (Multi-threaded)                 ║
-╠══════════════════════════════════════════════════════════════╣
-║ Load Balancers:  2    FPs per LB:  2    Total FPs:  4        ║
-╚══════════════════════════════════════════════════════════════╝
++--------------------------------------------------------------+
+|              DPI ENGINE v2.0 (Multi-threaded)                |
++--------------------------------------------------------------+
+| Load Balancers:  2    FPs per LB:  2    Total FPs:  4        |
++--------------------------------------------------------------+
 
 [Rules] Blocked app: YouTube
 [Rules] Blocked IP: 192.168.1.50
@@ -940,34 +946,34 @@ python3 generate_test_pcap.py
 [Reader] Processing packets...
 [Reader] Done reading 77 packets
 
-╔══════════════════════════════════════════════════════════════╗
-║                      PROCESSING REPORT                        ║
-╠══════════════════════════════════════════════════════════════╣
-║ Total Packets:                77                              ║
-║ Total Bytes:                5738                              ║
-║ TCP Packets:                  73                              ║
-║ UDP Packets:                   4                              ║
-╠══════════════════════════════════════════════════════════════╣
-║ Forwarded:                    69                              ║
-║ Dropped:                       8                              ║
-╠══════════════════════════════════════════════════════════════╣
-║ THREAD STATISTICS                                             ║
-║   LB0 dispatched:             53                              ║
-║   LB1 dispatched:             24                              ║
-║   FP0 processed:              53                              ║
-║   FP1 processed:               0                              ║
-║   FP2 processed:               0                              ║
-║   FP3 processed:              24                              ║
-╠══════════════════════════════════════════════════════════════╣
-║                   APPLICATION BREAKDOWN                       ║
-╠══════════════════════════════════════════════════════════════╣
-║ HTTPS                39  50.6% ##########                     ║
-║ Unknown              16  20.8% ####                           ║
-║ YouTube               4   5.2% # (BLOCKED)                    ║
-║ DNS                   4   5.2% #                              ║
-║ Facebook              3   3.9%                                ║
-║ ...                                                           ║
-╚══════════════════════════════════════════════════════════════╝
++--------------------------------------------------------------+
+|                      PROCESSING REPORT                       |
++--------------------------------------------------------------+
+| Total Packets:                77                             |
+| Total Bytes:                5738                             |
+| TCP Packets:                  73                             |
+| UDP Packets:                   4                             |
++--------------------------------------------------------------+
+| Forwarded:                    69                             |
+| Dropped:                       8                             |
++--------------------------------------------------------------+
+| THREAD STATISTICS                                            |
+|   LB0 dispatched:             53                             |
+|   LB1 dispatched:             24                             |
+|   FP0 processed:              53                             |
+|   FP1 processed:               0                             |
+|   FP2 processed:               0                             |
+|   FP3 processed:              24                             |
++--------------------------------------------------------------+
+|                   APPLICATION BREAKDOWN                      |
++--------------------------------------------------------------+
+| HTTPS                39  50.6% ##########                    |
+| Unknown              16  20.8% ####                          |
+| YouTube               4   5.2% # (BLOCKED)                   |
+| DNS                   4   5.2% #                             |
+| Facebook              3   3.9%                               |
+| ...                                                          |
++--------------------------------------------------------------+
 
 [Detected Domains/SNIs]
   - www.youtube.com -> YouTube
@@ -1050,4 +1056,4 @@ The key insight is that even HTTPS traffic leaks the destination domain in the T
 
 If you have questions about any part of this project, the code is well-commented and follows the same flow described in this document. Start with the simple version (`main_working.cpp`) to understand the concepts, then move to the multi-threaded version (`dpi_mt.cpp`) to see how parallelism is added.
 
-Happy learning! 🚀
+Happy learning!
