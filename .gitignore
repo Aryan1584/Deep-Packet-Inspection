@@ -1,0 +1,54 @@
+# Executables
+
+*.exe
+*.out
+*.app
+
+# Object files
+
+*.o
+*.obj
+
+# Static/Dynamic libraries
+
+*.a
+*.lib
+*.dll
+*.so
+*.dylib
+
+# Build directories
+
+build/
+bin/
+dist/
+
+# Generated PCAP files
+
+output.pcap
+*.pcapng
+
+# Logs
+
+*.log
+
+# VS Code
+
+.vscode/
+
+# Visual Studio
+
+.vs/
+
+# CMake
+
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# OS files
+
+.DS_Store
+Thumbs.db
+desktop.ini
